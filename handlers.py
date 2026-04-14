@@ -447,6 +447,37 @@ def retrieve_email(user_id):
         return "brigitte.tan@gmail.com"
     return None
 
+import urllib.parse
+
+def generate_invite_link(event_data):
+    """
+    Generate a shareable Google Calendar 'Add to Calendar' template link.
+    Anyone who clicks this link can add the pre-filled event to their own calendar.
+    """
+    base_url = "https://calendar.google.com/calendar/render?action=TEMPLATE"
+    
+    # Remove hyphens and colons from ISO format for Google Calendar URL requirements
+    # e.g., '2025-10-23T18:00:00' -> '20251023T180000'
+    start = event_data.get('start', '').replace('-', '').replace(':', '')
+    end = event_data.get('end', '').replace('-', '').replace(':', '')
+    
+    params = {
+        'text': event_data.get('title', ''),
+        'dates': f"{start}/{end}",
+        'ctz': 'Asia/Singapore'  # Matching the timezone used in your calendar creation
+    }
+    
+    if event_data.get('description'):
+        params['details'] = event_data.get('description')
+        
+    if event_data.get('location'):
+        params['location'] = event_data.get('location')
+        
+    # Build the final URL
+    query_string = urllib.parse.urlencode(params, safe='/')
+    
+    return f"{base_url}&{query_string}"
+
 def format_event_preview(event_data):
     """Format event data for preview"""
     msg = "📋 *Event Preview:*\n\n"
@@ -521,6 +552,12 @@ def handle_yes(chat_id, user_id, email):
         success_msg += f"\n[View in Calendar]({event_link})"
         
         send_message(chat_id, success_msg)
+
+        invite_link = generate_invite_link(event_data)
+        
+        # Construct and send the second message: Bold Title + Invite Link
+        invite_msg = f"*{event_data['title']}*\n{invite_link}"
+        send_message(chat_id, invite_msg)
         
         # Clear pending event
         del pending_events[user_id]
